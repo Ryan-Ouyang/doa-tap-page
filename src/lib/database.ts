@@ -1,4 +1,5 @@
-import { getServerSupabase, Chip, RewardPeriod, Claim } from './supabase';
+import { getServerSupabase } from './supabase';
+import { Tables } from './database.types'
 
 /**
  * Check if a chip UID is authorized (exists in the database)
@@ -22,30 +23,34 @@ export async function isAuthorizedChip(uid: string): Promise<boolean> {
 /**
  * Get or create a chip by its UID
  */
-export async function getOrCreateChip(uid: string): Promise<Chip | null> {
+export async function getOrCreateChip(uid: string): Promise<Tables<'chips'> | null> {
   const supabase = getServerSupabase();
   
   // Update last_tap_at for existing chip
-  const { data: existingChip } = await supabase
+  const { data: existingChip, error: existingChipError } = await supabase
     .from('chips')
     .update({ last_tap_at: new Date().toISOString() })
     .eq('uid', uid)
     .select('*')
     .single();
 
+  if (existingChipError) {
+    console.error('Error updating existing chip:', existingChipError);
+  }
+
   if (existingChip) {
     return existingChip;
   }
 
   // Create new chip if it doesn't exist
-  const { data: newChip, error } = await supabase
+  const { data: newChip, error: newChipError } = await supabase
     .from('chips')
     .insert({ uid, last_tap_at: new Date().toISOString() })
     .select('*')
     .single();
 
-  if (error) {
-    console.error('Error creating chip:', error);
+  if (newChipError) {
+    console.error('Error creating chip:', newChipError);
     return null;
   }
 
@@ -55,7 +60,7 @@ export async function getOrCreateChip(uid: string): Promise<Chip | null> {
 /**
  * Get a chip by its UID without creating a new one
  */
-export async function getChipByUid(uid: string): Promise<Chip | null> {
+export async function getChipByUid(uid: string): Promise<Tables<'chips'> | null> {
   const supabase = getServerSupabase();
   
   const { data, error } = await supabase
@@ -74,7 +79,7 @@ export async function getChipByUid(uid: string): Promise<Chip | null> {
 /**
  * Get the current active reward period
  */
-export async function getActiveRewardPeriod(): Promise<RewardPeriod | null> {
+export async function getActiveRewardPeriod(): Promise<Tables<'reward_periods'> | null> {
   const supabase = getServerSupabase();
   const now = new Date().toISOString();
   
@@ -123,14 +128,15 @@ export async function createClaim(
   chipId: number, 
   rewardPeriodId: number, 
   walletAddress: string
-): Promise<Claim | null> {
+): Promise<Tables<'claims'> | null> {
   const supabase = getServerSupabase();
   const { data, error } = await supabase
     .from('claims')
     .insert({ 
       chip_id: chipId, 
       reward_period_id: rewardPeriodId,
-      wallet_address: walletAddress
+      wallet_address: walletAddress,
+      claimed_at: new Date().toISOString()
     })
     .select('*')
     .single();
@@ -146,7 +152,7 @@ export async function createClaim(
 /**
  * Start a new reward period
  */
-export async function startRewardPeriod(createdBy: string): Promise<RewardPeriod | null> {
+export async function startRewardPeriod(createdBy: string): Promise<Tables<'reward_periods'> | null> {
   const supabase = getServerSupabase();
   
   // End any currently active periods
