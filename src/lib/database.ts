@@ -1,6 +1,25 @@
 import { getServerSupabase, Chip, RewardPeriod, Claim } from './supabase';
 
 /**
+ * Check if a chip UID is authorized (exists in the database)
+ */
+export async function isAuthorizedChip(uid: string): Promise<boolean> {
+  const supabase = getServerSupabase();
+  
+  const { data, error } = await supabase
+    .from('chips')
+    .select('id')
+    .eq('uid', uid)
+    .single();
+  
+  if (error || !data) {
+    return false;
+  }
+  
+  return true;
+}
+
+/**
  * Get or create a chip by its UID
  */
 export async function getOrCreateChip(uid: string): Promise<Chip | null> {
@@ -31,6 +50,25 @@ export async function getOrCreateChip(uid: string): Promise<Chip | null> {
   }
 
   return newChip;
+}
+
+/**
+ * Get a chip by its UID without creating a new one
+ */
+export async function getChipByUid(uid: string): Promise<Chip | null> {
+  const supabase = getServerSupabase();
+  
+  const { data, error } = await supabase
+    .from('chips')
+    .select('*')
+    .eq('uid', uid)
+    .single();
+  
+  if (error || !data) {
+    return null;
+  }
+  
+  return data;
 }
 
 /**

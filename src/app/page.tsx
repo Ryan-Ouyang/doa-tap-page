@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { validateIykRef } from '@/lib/iyk-api';
-import { getOrCreateChip, getActiveRewardPeriod, hasChipClaimedReward } from '@/lib/database';
+import { getChipByUid, getActiveRewardPeriod, hasChipClaimedReward } from '@/lib/database';
 
 // Define a type for Next.js redirect errors
 type NextRedirectError = Error & {
@@ -39,10 +39,12 @@ export default async function Home({ searchParams }: { searchParams: { iykRef?: 
       throw new Error('No OTP received from IYK API');
     }
 
-    // Step 2: Get or create the chip record
-    const chip = await getOrCreateChip(uid);
+    // Step 2: Check if the chip is authorized (exists in the database)
+    const chip = await getChipByUid(uid);
+    
+    // If the chip is not authorized, redirect to an unauthorized page
     if (!chip) {
-      throw new Error('Failed to get or create chip record');
+      return redirect('/tap-unauthorized');
     }
 
     // Step 3: Check if there's an active reward period

@@ -1,37 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { validateIykRef } from '@/lib/iyk-api';
-import { getOrCreateChip, getActiveRewardPeriod, hasChipClaimedReward, createClaim } from '@/lib/database';
+import { validateIykOtp } from '@/lib/iyk-api';
+import { getChipByUid, getActiveRewardPeriod, hasChipClaimedReward, createClaim } from '@/lib/database';
+import { OTP_COOKIE_NAME } from '@/middleware';
 
 export async function POST(request: NextRequest) {
   try {
-    // Parse the request body
-    const { iykRef } = await request.json();
-
-    // Validate the input
-    if (!iykRef) {
+    // Get the OTP from the cookie
+    const otpCookie = request.cookies.get(OTP_COOKIE_NAME);
+    
+    // If no OTP cookie exists, return an error
+    if (!otpCookie?.value) {
       return NextResponse.json(
-        { message: 'Missing iykRef parameter' },
-        { status: 400 }
+        { error: 'Authentication required. Please tap your hat again.' },
+        { status: 401 }
+      );
+    }
+    
+    // Step 1: Validate the OTP with the IYK API
+    const { isExpired, uid } = await validateIykOtp(otpCookie.value);
+    
+    // If the OTP is expired or invalid, return an error
+    if (isExpired || !uid) {
+      return NextResponse.json(
+        { error: 'Your session has expired. Please tap your hat again.' },
+        { status: 401 }
       );
     }
 
-    // Step 1: Validate the tap with the IYK API
-    const { isValidRef, uid } = await validateIykRef(iykRef);
-
-    // If the tap is invalid, return an error
-    if (!isValidRef || !uid) {
-      return NextResponse.json(
-        { message: 'Invalid tap reference' },
-        { status: 400 }
-      );
-    }
-
-    // Step 2: Get or create the chip record
-    const chip = await getOrCreateChip(uid);
+    // Step 2: Check if the chip is authorized (exists in the database)
+    const chip = await getChipByUid(uid);
+    
+    // If the chip is not authorized, return an error
     if (!chip) {
       return NextResponse.json(
-        { message: 'Failed to get or create chip record' },
-        { status: 500 }
+        { error: 'This hat is not authorized. Please contact the Department of Agriculture.' },
+        { status: 403 }
       );
     }
 
@@ -41,7 +44,7 @@ export async function POST(request: NextRequest) {
     // If no active reward period, return an error
     if (!activeRewardPeriod) {
       return NextResponse.json(
-        { message: 'No active reward period' },
+        { error: 'No active reward period' },
         { status: 400 }
       );
     }
@@ -52,7 +55,7 @@ export async function POST(request: NextRequest) {
     // If already claimed, return an error
     if (hasClaimed) {
       return NextResponse.json(
-        { message: 'Reward already claimed' },
+        { error: 'Reward already claimed' },
         { status: 400 }
       );
     }
@@ -62,7 +65,7 @@ export async function POST(request: NextRequest) {
     
     if (!claim) {
       return NextResponse.json(
-        { message: 'Failed to create claim record' },
+        { error: 'Failed to create claim record' },
         { status: 500 }
       );
     }
@@ -80,7 +83,7 @@ export async function POST(request: NextRequest) {
     console.error('Error claiming reward:', error);
     
     return NextResponse.json(
-      { message: 'An error occurred while processing your request' },
+      { error: 'An error occurred while processing your request' },
       { status: 500 }
     );
   }

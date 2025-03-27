@@ -1,24 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
 export default function RewardActiveUnclaimedPage() {
-  const searchParams = useSearchParams();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  
-  // Get the iykRef from the URL query parameters
-  const iykRef = searchParams.get('iykRef');
 
   const handleClaimReward = async () => {
-    if (!iykRef) {
-      setError('Missing reference ID. Please tap your hat again.');
-      return;
-    }
-
     setIsLoading(true);
     setError(null);
 
@@ -28,23 +19,27 @@ export default function RewardActiveUnclaimedPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ iykRef }),
+        // No need to send iykRef, the API will use the OTP cookie
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to claim reward');
+        setError(errorData.error || 'Failed to claim reward. Please try again.');
+        setIsLoading(false);
+        return;
       }
 
+      // Reward claimed successfully
       setSuccess(true);
-      
+      setIsLoading(false);
+
       // Redirect to the claimed page after a short delay
       setTimeout(() => {
-        router.push(`/reward-claimed-active?iykRef=${iykRef}`);
+        router.push('/reward-claimed-active');
       }, 2000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
-    } finally {
+    } catch (error) {
+      console.error('Error claiming reward:', error);
+      setError('An unexpected error occurred. Please try again.');
       setIsLoading(false);
     }
   };
@@ -68,18 +63,13 @@ export default function RewardActiveUnclaimedPage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-8 bg-blue-50">
       <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
-        <h1 className="text-3xl font-bold mb-4 text-blue-600">Reward Available!</h1>
+        <h1 className="text-3xl font-bold mb-4 text-blue-600">Claim Your Reward</h1>
         <p className="text-lg mb-6">
-          You have an active reward waiting to be claimed!
+          Congratulations! You have tapped your Department of Agriculture hat during an active reward period.
+          Click the button below to claim your reward.
         </p>
-        
-        {error && (
-          <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-md">
-            {error}
-          </div>
-        )}
-        
-        <button 
+
+        <button
           onClick={handleClaimReward}
           disabled={isLoading}
           className={`px-6 py-3 rounded-lg text-white font-medium transition-colors w-full
@@ -87,8 +77,14 @@ export default function RewardActiveUnclaimedPage() {
               ? 'bg-blue-400 cursor-not-allowed' 
               : 'bg-blue-600 hover:bg-blue-700'}`}
         >
-          {isLoading ? 'Processing...' : 'Claim Your Reward'}
+          {isLoading ? 'Claiming...' : 'Claim Reward'}
         </button>
+
+        {error && (
+          <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-md">
+            {error}
+          </div>
+        )}
       </div>
     </div>
   );
