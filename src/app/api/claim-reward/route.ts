@@ -2,17 +2,34 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateIykOtp } from '@/lib/iyk-api';
 import { getChipByUid, getActiveRewardPeriod, hasChipClaimedReward, createClaim } from '@/lib/database';
 import { OTP_COOKIE_NAME } from '@/middleware';
+import { verifyWalletSignature } from '@/lib/signature-verification';
 
 export async function POST(request: NextRequest) {
   try {
-    // Get the wallet address from the request body
-    const { walletAddress } = await request.json();
+    // Get request body data
+    const { signature, message } = await request.json();
     
-    // Validate wallet address
-    if (!walletAddress || !walletAddress.startsWith('0x') || walletAddress.length !== 42) {
+    // Validate signature
+    if (!signature) {
       return NextResponse.json(
-        { error: 'Please provide a valid Ethereum wallet address' },
+        { error: 'Missing signature. Please sign the message to verify wallet ownership.' },
         { status: 400 }
+      );
+    }
+    
+    if (!message) {
+      return NextResponse.json(
+        { error: 'Missing message. Please sign the message to verify wallet ownership.' },
+        { status: 400 }
+      );
+    }
+    
+    // Verify the signature matches the wallet address
+    const { isValid, address } = await verifyWalletSignature(signature, message);
+    if (!isValid || !address) {
+      return NextResponse.json(
+        { error: 'Invalid signature. Please try again with the correct wallet.' },
+        { status: 401 }
       );
     }
     
@@ -72,7 +89,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 5: Create a claim record with the wallet address
-    const claim = await createClaim(chip.id, activeRewardPeriod.id, walletAddress);
+    const claim = await createClaim(chip.id, activeRewardPeriod.id, address);
     
     if (!claim) {
       return NextResponse.json(

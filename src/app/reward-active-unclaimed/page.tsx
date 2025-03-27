@@ -2,18 +2,29 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { WalletConnect } from '@/components/WalletConnect';
+import { Address, Hex } from 'viem';
 
 export default function RewardActiveUnclaimedPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [walletAddress, setWalletAddress] = useState('');
+  
+  // Store wallet address and signature from the wallet connection
+  const [walletData, setWalletData] = useState<{
+    message: string;
+    signature: string;
+  } | null>(null);
+
+  const handleSignatureComplete = (address: Address, message: string, signature: Hex) => {
+    setWalletData({ message, signature });
+  };
 
   const handleClaimReward = async () => {
-    // Validate wallet address (basic validation for now)
-    if (!walletAddress || !walletAddress.startsWith('0x') || walletAddress.length !== 42) {
-      setError('Please enter a valid Ethereum wallet address (0x followed by 40 hexadecimal characters)');
+    // Ensure we have wallet data
+    if (!walletData) {
+      setError('Please connect your wallet and sign the message first');
       return;
     }
 
@@ -26,7 +37,10 @@ export default function RewardActiveUnclaimedPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ walletAddress }),
+        body: JSON.stringify({
+          message: walletData.message,
+          signature: walletData.signature
+        }),
       });
 
       if (!response.ok) {
@@ -77,20 +91,7 @@ export default function RewardActiveUnclaimedPage() {
         </p>
 
         <div className="mb-6">
-          <label htmlFor="wallet-address" className="block text-left text-sm font-medium text-gray-700 mb-2">
-            Ethereum Wallet Address
-          </label>
-          <input
-            id="wallet-address"
-            type="text"
-            placeholder="0x..."
-            value={walletAddress}
-            onChange={(e) => setWalletAddress(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <p className="text-xs text-gray-500 mt-1 text-left">
-            This address will receive your reward when the current reward period ends.
-          </p>
+          <WalletConnect onSignatureComplete={handleSignatureComplete} />
         </div>
 
         {error && (
@@ -101,9 +102,9 @@ export default function RewardActiveUnclaimedPage() {
 
         <button
           onClick={handleClaimReward}
-          disabled={isLoading}
+          disabled={isLoading || !walletData}
           className={`px-6 py-3 rounded-lg text-white font-medium transition-colors w-full
-            ${isLoading 
+            ${isLoading || !walletData
               ? 'bg-blue-400 cursor-not-allowed' 
               : 'bg-blue-600 hover:bg-blue-700'}`}
         >
