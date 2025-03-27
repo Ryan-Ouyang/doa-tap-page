@@ -21,6 +21,7 @@ export type Claim = {
   chip_id: number;
   reward_period_id: number;
   claimed_at: string;
+  wallet_address: string | null; // TODO: this should not be nullable
 };
 
 export type Admin = {

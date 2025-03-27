@@ -37,4 +37,4 @@ We use Supabase to store the data.
 ### Assorted TODOs
 - Review cookie lifetime for storing OTP
 - Implement proper password authentication for the admin page
-- Connect wallet + sign message to authenticate user for claiming reward
+- Connect wallet + sign message to authenticate user for claiming reward (and use Viem on the backend to validate the address + signature)

@@ -8,8 +8,15 @@ export default function RewardActiveUnclaimedPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [walletAddress, setWalletAddress] = useState('');
 
   const handleClaimReward = async () => {
+    // Validate wallet address (basic validation for now)
+    if (!walletAddress || !walletAddress.startsWith('0x') || walletAddress.length !== 42) {
+      setError('Please enter a valid Ethereum wallet address (0x followed by 40 hexadecimal characters)');
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -19,7 +26,7 @@ export default function RewardActiveUnclaimedPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        // No need to send iykRef, the API will use the OTP cookie
+        body: JSON.stringify({ walletAddress }),
       });
 
       if (!response.ok) {
@@ -66,8 +73,31 @@ export default function RewardActiveUnclaimedPage() {
         <h1 className="text-3xl font-bold mb-4 text-blue-600">Claim Your Reward</h1>
         <p className="text-lg mb-6">
           Congratulations! You have tapped your Department of Agriculture hat during an active reward period.
-          Click the button below to claim your reward.
+          Enter your Ethereum wallet address below to claim your reward.
         </p>
+
+        <div className="mb-6">
+          <label htmlFor="wallet-address" className="block text-left text-sm font-medium text-gray-700 mb-2">
+            Ethereum Wallet Address
+          </label>
+          <input
+            id="wallet-address"
+            type="text"
+            placeholder="0x..."
+            value={walletAddress}
+            onChange={(e) => setWalletAddress(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <p className="text-xs text-gray-500 mt-1 text-left">
+            This address will receive your reward when the current reward period ends.
+          </p>
+        </div>
+
+        {error && (
+          <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-md text-left">
+            {error}
+          </div>
+        )}
 
         <button
           onClick={handleClaimReward}
@@ -79,12 +109,6 @@ export default function RewardActiveUnclaimedPage() {
         >
           {isLoading ? 'Claiming...' : 'Claim Reward'}
         </button>
-
-        {error && (
-          <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-md">
-            {error}
-          </div>
-        )}
       </div>
     </div>
   );

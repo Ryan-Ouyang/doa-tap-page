@@ -119,11 +119,19 @@ export async function hasChipClaimedReward(chipId: number, rewardPeriodId: numbe
 /**
  * Create a claim for a chip in the current reward period
  */
-export async function createClaim(chipId: number, rewardPeriodId: number): Promise<Claim | null> {
+export async function createClaim(
+  chipId: number, 
+  rewardPeriodId: number, 
+  walletAddress: string
+): Promise<Claim | null> {
   const supabase = getServerSupabase();
   const { data, error } = await supabase
     .from('claims')
-    .insert({ chip_id: chipId, reward_period_id: rewardPeriodId })
+    .insert({ 
+      chip_id: chipId, 
+      reward_period_id: rewardPeriodId,
+      wallet_address: walletAddress
+    })
     .select('*')
     .single();
 

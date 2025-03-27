@@ -5,6 +5,17 @@ import { OTP_COOKIE_NAME } from '@/middleware';
 
 export async function POST(request: NextRequest) {
   try {
+    // Get the wallet address from the request body
+    const { walletAddress } = await request.json();
+    
+    // Validate wallet address
+    if (!walletAddress || !walletAddress.startsWith('0x') || walletAddress.length !== 42) {
+      return NextResponse.json(
+        { error: 'Please provide a valid Ethereum wallet address' },
+        { status: 400 }
+      );
+    }
+    
     // Get the OTP from the cookie
     const otpCookie = request.cookies.get(OTP_COOKIE_NAME);
     
@@ -60,8 +71,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Step 5: Create a claim record
-    const claim = await createClaim(chip.id, activeRewardPeriod.id);
+    // Step 5: Create a claim record with the wallet address
+    const claim = await createClaim(chip.id, activeRewardPeriod.id, walletAddress);
     
     if (!claim) {
       return NextResponse.json(
@@ -75,7 +86,8 @@ export async function POST(request: NextRequest) {
       { 
         message: 'Reward claimed successfully',
         claimId: claim.id,
-        claimedAt: claim.claimed_at
+        claimedAt: claim.claimed_at,
+        walletAddress: claim.wallet_address
       },
       { status: 200 }
     );
