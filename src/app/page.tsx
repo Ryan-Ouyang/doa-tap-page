@@ -9,8 +9,9 @@ type NextRedirectError = Error & {
 
 // This is a Server Component that runs only on the server
 export default async function Home({ searchParams }: { searchParams: { iykRef?: string } }) {
-  // Get the iykRef from the query parameters
-  const { iykRef } = searchParams;
+  // Get the iykRef from the query parameters - in Next.js 15, we need to await searchParams
+  const params = await searchParams;
+  const iykRef = params.iykRef;
 
   // If no iykRef is provided, show a message
   if (!iykRef) {
@@ -26,11 +27,16 @@ export default async function Home({ searchParams }: { searchParams: { iykRef?: 
 
   try {
     // Step 1: Validate the tap with the IYK API
-    const { isValidRef, uid } = await validateIykRef(iykRef);
+    const { isValidRef, uid, otp } = await validateIykRef(iykRef);
 
     // If the tap is invalid, redirect to the invalid tap page
     if (!isValidRef || !uid) {
       return redirect('/tap-invalid');
+    }
+
+    // If we don't have an OTP, we can't authenticate the user for protected pages
+    if (!otp || !otp.code) {
+      throw new Error('No OTP received from IYK API');
     }
 
     // Step 2: Get or create the chip record
@@ -42,22 +48,26 @@ export default async function Home({ searchParams }: { searchParams: { iykRef?: 
     // Step 3: Check if there's an active reward period
     const activeRewardPeriod = await getActiveRewardPeriod();
     
-    // If no active reward period, redirect to the "reward not active" page
-    if (!activeRewardPeriod) {
-      return redirect('/reward-not-active');
+    // Determine which page to redirect to based on the reward status
+    let redirectPath = '/reward-not-active';
+    
+    if (activeRewardPeriod) {
+      // Check if the chip has already claimed a reward in this period
+      const hasClaimed = await hasChipClaimedReward(chip.id, activeRewardPeriod.id);
+      
+      if (hasClaimed) {
+        // Reward claimed, reward still active
+        redirectPath = '/reward-claimed-active';
+      } else {
+        // Reward active, unclaimed
+        redirectPath = '/reward-active-unclaimed';
+      }
     }
-
-    // Step 4: Check if the chip has already claimed a reward in this period
-    const hasClaimed = await hasChipClaimedReward(chip.id, activeRewardPeriod.id);
-
-    // Redirect based on claim status
-    if (hasClaimed) {
-      // Reward claimed, reward still active
-      return redirect('/reward-claimed-active');
-    } else {
-      // Reward active, unclaimed
-      return redirect('/reward-active-unclaimed');
-    }
+    
+    // Use the API route to set the cookie and redirect
+    // This approach works better in Next.js 15 for setting cookies
+    return redirect(`/api/set-cookie-redirect?otp=${otp.code}&redirectTo=${redirectPath}`);
+    
   } catch (error) {
     // Cast the error to our custom type
     const nextError = error as NextRedirectError;
