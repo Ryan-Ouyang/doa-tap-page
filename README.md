@@ -1,6 +1,6 @@
 ## Department of Agriculture Tap Page
 
-Vibe coded with a free trial of Windsurf.
+New version: https://github.com/eco-incorp/doa-tap-page
 
 ---
 
